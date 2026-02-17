@@ -42,14 +42,27 @@ app.get('*', (_req, res) => {
   res.sendFile(path.join(clientBuildPath, 'index.html'));
 });
 
-// Initialize database then start server
-initDb()
-  .then(() => {
-    app.listen(PORT, '0.0.0.0', () => {
-      console.log(`Server running on port ${PORT}`);
-    });
-  })
-  .catch(err => {
-    console.error('Failed to initialize database:', err);
-    process.exit(1);
-  });
+// Start server first (so Cloud Run sees a listening port), then initialize database
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`Server running on port ${PORT}`);
+
+  // Initialize database with retries for transient Cloud SQL connection issues
+  const maxRetries = 5;
+  const retryDelay = 3000;
+
+  (async function tryInitDb(attempt: number) {
+    try {
+      await initDb();
+      console.log('Database initialized successfully');
+    } catch (err) {
+      console.error(`Database init attempt ${attempt}/${maxRetries} failed:`, err);
+      if (attempt < maxRetries) {
+        console.log(`Retrying in ${retryDelay / 1000}s...`);
+        setTimeout(() => tryInitDb(attempt + 1), retryDelay);
+      } else {
+        console.error('All database init attempts failed. Exiting.');
+        process.exit(1);
+      }
+    }
+  })(1);
+});
