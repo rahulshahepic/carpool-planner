@@ -73,7 +73,7 @@ router.get('/', requireAuth, (req: Request, res: Response) => {
     SELECT mr.*,
       CASE WHEN mr.user_a_id = ? THEN u2.display_name ELSE u1.display_name END as partner_name,
       CASE WHEN mr.user_a_id = ? THEN u2.avatar_url ELSE u1.avatar_url END as partner_avatar,
-      CASE WHEN mr.user_a_id = ? THEN u2.home_address ELSE u1.home_address END as partner_address,
+      CASE WHEN mr.user_a_id = ? THEN u2.home_neighborhood ELSE u1.home_neighborhood END as partner_neighborhood,
       CASE WHEN mr.user_a_id = ? THEN mr.user_b_id ELSE mr.user_a_id END as partner_id
     FROM match_results mr
     JOIN users u1 ON mr.user_a_id = u1.id
@@ -82,14 +82,10 @@ router.get('/', requireAuth, (req: Request, res: Response) => {
     ORDER BY mr.rank_score ASC
   `).all(userId, userId, userId, userId, userId, userId);
 
-  // Show neighborhood/suburb for privacy (not full address)
-  // Google address format: "123 Main St, Suburb, City, State ZIP, Country"
-  // We take the second part (index 1) which is the most local area name
-  const sanitized = matches.map((m: any) => ({
+  // Return neighborhood from geocoded data (no address parsing needed)
+  const sanitized = matches.map(({ partner_neighborhood, ...m }: any) => ({
     ...m,
-    partner_address: m.partner_address
-      ? (m.partner_address.split(',')[1]?.trim() || null)
-      : null,
+    partner_address: partner_neighborhood || null,
   }));
 
   res.json(sanitized);

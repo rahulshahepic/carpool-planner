@@ -21,6 +21,7 @@ router.put('/', requireAuth, async (req: Request, res: Response) => {
   // If address provided but no coordinates, geocode it
   let lat = home_lat;
   let lng = home_lng;
+  let neighborhood: string | null = null;
 
   if (home_address && (!lat || !lng)) {
     try {
@@ -31,8 +32,16 @@ router.put('/', requireAuth, async (req: Request, res: Response) => {
       );
       const data = await resp.json() as any;
       if (data.results && data.results.length > 0) {
-        lat = data.results[0].geometry.location.lat;
-        lng = data.results[0].geometry.location.lng;
+        const result = data.results[0];
+        lat = result.geometry.location.lat;
+        lng = result.geometry.location.lng;
+
+        // Extract neighborhood from address_components
+        // Priority: neighborhood > sublocality > locality
+        const components: any[] = result.address_components || [];
+        const find = (type: string) =>
+          components.find((c: any) => c.types.includes(type))?.long_name;
+        neighborhood = find('neighborhood') || find('sublocality_level_1') || find('sublocality') || find('locality') || null;
       }
     } catch (err) {
       console.error('Geocoding error:', err);
@@ -40,8 +49,8 @@ router.put('/', requireAuth, async (req: Request, res: Response) => {
   }
 
   db.prepare(
-    `UPDATE users SET home_address = ?, home_lat = ?, home_lng = ?, updated_at = datetime('now') WHERE id = ?`
-  ).run(home_address || null, lat || null, lng || null, req.user!.userId);
+    `UPDATE users SET home_address = ?, home_lat = ?, home_lng = ?, home_neighborhood = ?, updated_at = datetime('now') WHERE id = ?`
+  ).run(home_address || null, lat || null, lng || null, neighborhood, req.user!.userId);
 
   const user = db.prepare('SELECT * FROM users WHERE id = ?').get(req.user!.userId);
   res.json(user);
