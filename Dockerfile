@@ -28,6 +28,14 @@ COPY --from=client-build /app/client/dist ./public
 
 ENV NODE_ENV=production
 ENV PORT=8080
+ENV DB_PATH=/data/carpool.db
+
+# Persistent volume for SQLite database
+# Mount a volume at /data so the DB survives container redeployments
+# e.g. docker run -v carpool-data:/data ...
+# or use Cloud Run volume mounts with a GCS bucket / persistent disk
+VOLUME ["/data"]
+
 EXPOSE 8080
 
 CMD ["node", "dist/index.js"]
