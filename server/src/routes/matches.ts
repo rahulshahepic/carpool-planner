@@ -82,11 +82,13 @@ router.get('/', requireAuth, (req: Request, res: Response) => {
     ORDER BY mr.rank_score ASC
   `).all(userId, userId, userId, userId, userId, userId);
 
-  // Generalize addresses for privacy (city only)
+  // Show neighborhood/suburb for privacy (not full address)
+  // Google address format: "123 Main St, Suburb, City, State ZIP, Country"
+  // We take the second part (index 1) which is the most local area name
   const sanitized = matches.map((m: any) => ({
     ...m,
     partner_address: m.partner_address
-      ? m.partner_address.split(',').slice(-2).join(',').trim()
+      ? (m.partner_address.split(',')[1]?.trim() || null)
       : null,
   }));
 

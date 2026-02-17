@@ -10,13 +10,27 @@ interface Preference {
 
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
 
-const DEFAULT_PREF: Preference = {
-  direction: 'TO_WORK',
-  earliest_time: '07:00',
-  latest_time: '08:30',
-  days_of_week: [0, 1, 2, 3, 4],
-  role: 'EITHER',
+const DEFAULTS: Record<string, Preference> = {
+  TO_WORK: {
+    direction: 'TO_WORK',
+    earliest_time: '07:00',
+    latest_time: '08:30',
+    days_of_week: [0, 1, 2, 3, 4],
+    role: 'EITHER',
+  },
+  FROM_WORK: {
+    direction: 'FROM_WORK',
+    earliest_time: '17:00',
+    latest_time: '18:30',
+    days_of_week: [0, 1, 2, 3, 4],
+    role: 'EITHER',
+  },
 };
+
+function timeToMinutes(t: string): number {
+  const [h, m] = t.split(':').map(Number);
+  return h * 60 + m;
+}
 
 function PrefForm({
   direction,
@@ -28,10 +42,11 @@ function PrefForm({
   onSave: () => void;
 }) {
   const [pref, setPref] = useState<Preference>(
-    initial || { ...DEFAULT_PREF, direction }
+    initial || DEFAULTS[direction]
   );
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
+  const [error, setError] = useState('');
 
   useEffect(() => {
     if (initial) setPref(initial);
@@ -46,9 +61,26 @@ function PrefForm({
     }));
   };
 
+  const validate = (): string | null => {
+    if (pref.days_of_week.length === 0) {
+      return 'Select at least one day.';
+    }
+    if (timeToMinutes(pref.latest_time) <= timeToMinutes(pref.earliest_time)) {
+      return 'Latest departure must be after earliest departure.';
+    }
+    return null;
+  };
+
   const handleSave = useCallback(async () => {
+    const validationError = validate();
+    if (validationError) {
+      setError(validationError);
+      setMessage('');
+      return;
+    }
     setSaving(true);
     setMessage('');
+    setError('');
     try {
       const res = await fetch('/api/preferences', {
         method: 'PUT',
@@ -60,10 +92,10 @@ function PrefForm({
         onSave();
       } else {
         const err = await res.json();
-        setMessage(err.error || 'Failed to save');
+        setError(err.error || 'Failed to save');
       }
     } catch {
-      setMessage('Network error');
+      setError('Network error');
     } finally {
       setSaving(false);
     }
@@ -127,6 +159,7 @@ function PrefForm({
       <button onClick={handleSave} disabled={saving} className="btn btn-primary">
         {saving ? 'Saving...' : 'Save'}
       </button>
+      {error && <p className="form-error">{error}</p>}
       {message && <p className="form-message">{message}</p>}
     </div>
   );
