@@ -1,10 +1,13 @@
 import { Pool } from 'pg';
 
+const dbUrl = process.env.DATABASE_URL || '';
+const isLocal = dbUrl.includes('localhost') || dbUrl.includes('127.0.0.1');
+const isCloudSql = dbUrl.includes('/cloudsql/');
+
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: process.env.DATABASE_URL?.includes('localhost')
-    ? false
-    : { rejectUnauthorized: false },
+  connectionString: dbUrl,
+  // Cloud SQL uses Unix sockets (no SSL needed); localhost doesn't need SSL either
+  ssl: isLocal || isCloudSql ? false : { rejectUnauthorized: false },
 });
 
 export async function initDb() {
