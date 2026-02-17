@@ -24,6 +24,7 @@ db.exec(`
     home_address TEXT,
     home_lat REAL,
     home_lng REAL,
+    home_neighborhood TEXT,
     created_at TEXT DEFAULT (datetime('now')),
     updated_at TEXT DEFAULT (datetime('now'))
   );
@@ -54,5 +55,12 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_match_user_b ON match_results(user_b_id);
   CREATE INDEX IF NOT EXISTS idx_prefs_user ON commute_preferences(user_id);
 `);
+
+// Migration: add home_neighborhood column if missing
+try {
+  db.exec(`ALTER TABLE users ADD COLUMN home_neighborhood TEXT`);
+} catch {
+  // Column already exists
+}
 
 export default db;
