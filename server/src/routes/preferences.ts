@@ -45,6 +45,24 @@ router.put('/', requireAuth, (req: Request, res: Response) => {
     return;
   }
 
+  if (!Array.isArray(days_of_week) || days_of_week.length === 0) {
+    res.status(400).json({ error: 'Select at least one day' });
+    return;
+  }
+
+  // Validate time format and ordering
+  const timeRe = /^\d{2}:\d{2}$/;
+  if (!timeRe.test(earliest_time) || !timeRe.test(latest_time)) {
+    res.status(400).json({ error: 'Invalid time format' });
+    return;
+  }
+  const [eh, em] = earliest_time.split(':').map(Number);
+  const [lh, lm] = latest_time.split(':').map(Number);
+  if (lh * 60 + lm <= eh * 60 + em) {
+    res.status(400).json({ error: 'Latest departure must be after earliest departure' });
+    return;
+  }
+
   const daysJson = JSON.stringify(days_of_week);
   const userId = req.user!.userId;
 
