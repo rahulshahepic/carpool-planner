@@ -1,56 +1,56 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
 
-declare global {
-  interface Window {
-    google?: typeof google;
-  }
-}
-
 export default function Profile() {
   const { user, refreshUser } = useAuth();
   const [address, setAddress] = useState(user?.home_address || '');
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
-  const inputRef = useRef<HTMLInputElement>(null);
-  const autocompleteRef = useRef<google.maps.places.Autocomplete | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
 
-  // Load Google Maps Places Autocomplete
+  // Load Google Maps Places Autocomplete (New)
   useEffect(() => {
     let script: HTMLScriptElement | null = null;
 
     const initAutocomplete = () => {
-      if (!inputRef.current || !window.google?.maps?.places) return;
-      autocompleteRef.current = new google.maps.places.Autocomplete(inputRef.current, {
+      if (!containerRef.current || !(window as any).google?.maps?.places) return;
+      containerRef.current.innerHTML = '';
+
+      const autocomplete = new (window as any).google.maps.places.PlaceAutocompleteElement({
         types: ['address'],
         componentRestrictions: { country: 'us' },
       });
-      autocompleteRef.current.addListener('place_changed', () => {
-        const place = autocompleteRef.current!.getPlace();
-        if (place.formatted_address) {
-          setAddress(place.formatted_address);
+
+      autocomplete.addEventListener('gmp-placeselect', async (event: any) => {
+        const { place } = event;
+        await place.fetchFields({ fields: ['formattedAddress'] });
+        if (place.formattedAddress) {
+          setAddress(place.formattedAddress);
         }
       });
+
+      containerRef.current.appendChild(autocomplete);
     };
 
-    // Fetch Maps API key and load the script
     fetch('/api/config')
       .then(r => r.json())
       .then(config => {
         if (!config.mapsApiKey) return;
-        if (window.google?.maps?.places) {
+        if ((window as any).google?.maps?.places?.PlaceAutocompleteElement) {
           initAutocomplete();
           return;
         }
         script = document.createElement('script');
-        script.src = `https://maps.googleapis.com/maps/api/js?key=${config.mapsApiKey}&libraries=places`;
+        script.src = `https://maps.googleapis.com/maps/api/js?key=${config.mapsApiKey}&libraries=places&v=weekly`;
         script.async = true;
         script.onload = initAutocomplete;
         document.head.appendChild(script);
       });
 
     return () => {
-      if (script) document.head.removeChild(script);
+      if (script && document.head.contains(script)) {
+        document.head.removeChild(script);
+      }
     };
   }, []);
 
@@ -96,19 +96,14 @@ export default function Profile() {
         <p className="text-muted">
           Used to calculate your commute route. Your exact address is never shown to other users.
         </p>
+        {address && (
+          <p style={{ margin: '12px 0', fontWeight: 500 }}>{address}</p>
+        )}
         <div className="form-group">
-          <label htmlFor="address">Address</label>
-          <input
-            ref={inputRef}
-            id="address"
-            type="text"
-            value={address}
-            onChange={e => setAddress(e.target.value)}
-            placeholder="Start typing your address..."
-            className="input"
-          />
+          <label>{address ? 'Change address' : 'Search for your address'}</label>
+          <div ref={containerRef} className="autocomplete-container" />
         </div>
-        <button onClick={handleSave} disabled={saving} className="btn btn-primary">
+        <button onClick={handleSave} disabled={saving || !address} className="btn btn-primary">
           {saving ? 'Saving...' : 'Save Address'}
         </button>
         {message && <p className="form-message">{message}</p>}
