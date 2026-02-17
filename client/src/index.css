@@ -234,6 +234,10 @@ body {
   gap: 16px;
 }
 
+.autocomplete-container gmp-placeautocomplete {
+  width: 100%;
+}
+
 .text-muted { color: var(--text-muted); }
 
 /* Matches */
